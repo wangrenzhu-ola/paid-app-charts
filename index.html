@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>发达国家 iOS 付费榜 · 智能体化机会</title>
+<style>
+:root{--bg:#0b0f14;--panel:#121821;--ink:#e8eef7;--muted:#8b9bb0;--line:#243041;--accent:#6ea8fe;--good:#3dd68c;--warn:#f5a524;--bad:#f07178}
+*{box-sizing:border-box}body{margin:0;font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:28px 20px 12px;max-width:1100px;margin:0 auto}h1{font-size:1.55rem;margin:0 0 8px} .sub{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.chip{background:#1a2433;border:1px solid var(--line);padding:4px 10px;border-radius:999px;font-size:12px;color:var(--muted)}
+main{max-width:1100px;margin:0 auto;padding:8px 20px 48px}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:14px 0}
+h2{font-size:1.1rem;margin:0 0 12px}.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.item{border:1px solid var(--line);border-radius:12px;padding:12px;background:#0e141d}.item h3{margin:0 0 6px;font-size:1rem}
+.pri{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;margin-bottom:8px}.pri.高{background:#163527;color:var(--good)}.pri.中{background:#3a2a12;color:var(--warn)}.pri.低-中{background:#2a3140;color:var(--muted)}
+.meta{color:var(--muted);font-size:12px;margin:4px 0}.cut{margin-top:8px}.item h3{margin:0 0 6px;font-size:1rem}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}select,input{background:#0e141d;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+footer{color:var(--muted);font-size:12px;max-width:1100px;margin:0 auto;padding:0 20px 40px}.err{color:var(--bad);padding:20px}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>发达国家 iOS 付费榜 · 智能体化机会</h1>
+  <div class="sub" id="metaLine">加载中…</div>
+  <div class="chips" id="countryChips"></div>
+</header>
+<main>
+  <section class="card">
+    <h2>智能体化短名单</h2>
+    <div class="grid" id="shortlist"></div>
+  </section>
+  <section class="card">
+    <h2>付费应用榜 · 跨国共现（≥5 国）</h2>
+    <div style="overflow:auto"><table><thead><tr><th>App</th><th>国数</th><th>国家</th><th>品类</th><th>样例价</th></tr></thead><tbody id="coBody"></tbody></table></div>
+  </section>
+  <section class="card">
+    <h2>各国榜单明细</h2>
+    <div class="controls">
+      <select id="countrySel"></select>
+      <select id="listSel">
+        <option value="paid_apps">付费应用</option>
+        <option value="overall_paid">付费总榜</option>
+        <option value="paid_games">付费游戏</option>
+      </select>
+      <input id="q" placeholder="搜索 App / 开发者" style="min-width:180px"/>
+    </div>
+    <div style="overflow:auto"><table><thead><tr><th>#</th><th>App</th><th>开发者</th><th>品类</th><th>价格</th></tr></thead><tbody id="rankBody"></tbody></table></div>
+  </section>
+</main>
+<footer>
+  数据来自 Apple iTunes RSS / Marketing Tools。焦点是 Paid charts。游戏强 IP、网络代理工具、诊疗声称建议慎碰。<br/>
+  仓库：<a href="https://github.com/wangrenzhu-ola/paid-app-charts">wangrenzhu-ola/paid-app-charts</a>
+</footer>
+<script>
+let DATA=null;
+const $ = (id)=>document.getElementById(id);
+function money(p){ if(p==null||p==='') return '—'; if(typeof p==='string') return p; if(p.price==null||p.price==='') return '—'; return `${p.currency||''} ${p.price}`.trim(); }
+function renderMeta(){
+  const m=DATA.meta;
+  $('metaLine').textContent = `抓取 ${m.fetched_at||'—'} · ${m.row_count} 条 · ${m.countries.length} 国 · ${m.source}`;
+  $('countryChips').innerHTML = m.countries.map(c=>`<span class="chip">${c}</span>`).join('');
+  $('countrySel').innerHTML = m.countries.map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+function renderShortlist(){
+  $('shortlist').innerHTML = (DATA.agent_shortlist||[]).map(it=>`
+    <div class="item">
+      <span class="pri ${it.priority||''}">${it.priority||''}</span>
+      <h3>${it.name}</h3>
+      <div class="meta">${(it.countries||[]).join(' · ')}</div>
+      <div><b>为何付费：</b>${it.why_paid||''}</div>
+      <div class="cut"><b>Agent 切口：</b>${it.agent_cut||''}</div>
+      <div class="meta">${it.opportunity_type||''}</div>
+    </div>`).join('');
+}
+function renderCo(){
+  const rows=(DATA.cooccurrence_paid_apps||[]).filter(r=>r.country_count>=5);
+  $('coBody').innerHTML = rows.map(r=>`<tr>
+    <td>${r.app_name}<div class="meta">${r.developer||''}</div></td>
+    <td>${r.country_count}</td>
+    <td>${r.countries.join(', ')}</td>
+    <td>${r.category||'—'}</td>
+    <td>${money(r.sample_price)}</td>
+  </tr>`).join('');
+}
+function renderRanks(){
+  const c=$('countrySel').value, lt=$('listSel').value, q=$('q').value.trim().toLowerCase();
+  let rows=(DATA.rows||[]).filter(r=>r.country===c && r.list_type===lt);
+  if(q) rows=rows.filter(r=>((r.app_name||'')+(r.developer||'')).toLowerCase().includes(q));
+  rows.sort((a,b)=>a.rank-b.rank);
+  $('rankBody').innerHTML = rows.map(r=>`<tr>
+    <td>${r.rank}</td><td>${r.app_name}</td><td>${r.developer||'—'}</td><td>${r.category||'—'}</td>
+    <td>${r.price?`${r.currency||''} ${r.price}`:'—'}</td>
+  </tr>`).join('') || `<tr><td colspan="5">无数据</td></tr>`;
+}
+async function main(){
+  try{
+    const res=await fetch('./data/latest.json');
+    if(!res.ok) throw new Error(res.status+' '+res.statusText);
+    DATA=await res.json();
+    renderMeta(); renderShortlist(); renderCo(); renderRanks();
+    ['countrySel','listSel'].forEach(id=>$(id).addEventListener('change',renderRanks));
+    $('q').addEventListener('input',renderRanks);
+  }catch(e){
+    $('metaLine').innerHTML=`<span class="err">加载失败：${e.message}</span>`;
+  }
+}
+main();
+</script>
+</body>
+</html>
