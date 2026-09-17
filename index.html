@@ -17,7 +17,7 @@ h2{font-size:1.1rem;margin:0 0 12px}.grid{display:grid;gap:10px;grid-template-co
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
 .controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}select,input{background:#0e141d;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 footer{color:var(--muted);font-size:12px;max-width:1100px;margin:0 auto;padding:0 20px 40px}.err{color:var(--bad);padding:20px}
-a{color:var(--accent)}
+a{color:var(--accent)}a.app-link{text-decoration:none;border-bottom:1px dotted rgba(110,168,254,.5)}a.app-link:hover{border-bottom-style:solid}
 </style>
 </head>
 <body>
@@ -57,6 +57,17 @@ a{color:var(--accent)}
 let DATA=null;
 const $ = (id)=>document.getElementById(id);
 function money(p){ if(p==null||p==='') return '—'; if(typeof p==='string') return p; if(p.price==null||p.price==='') return '—'; return `${p.currency||''} ${p.price}`.trim(); }
+function storeUrl(r){
+  const id = r && (r.app_id || r.id);
+  if(!id) return null;
+  const cc = (r.country || (DATA.meta && DATA.meta.countries && DATA.meta.countries[0]) || 'us').toLowerCase();
+  return `https://apps.apple.com/${cc}/app/id${id}`;
+}
+function appCell(r, name){
+  const n = name || r.app_name || '—';
+  const u = storeUrl(r);
+  return u ? `<a class="app-link" href="${u}" target="_blank" rel="noopener">${n}</a>` : n;
+}
 function renderMeta(){
   const m=DATA.meta;
   $('metaLine').textContent = `抓取 ${m.fetched_at||'—'} · ${m.row_count} 条 · ${m.countries.length} 国 · ${m.source}`;
@@ -67,7 +78,7 @@ function renderShortlist(){
   $('shortlist').innerHTML = (DATA.agent_shortlist||[]).map(it=>`
     <div class="item">
       <span class="pri ${it.priority||''}">${it.priority||''}</span>
-      <h3>${it.name}</h3>
+      <h3>${appCell({app_name:it.name, app_id:it.app_id, country:(it.countries&&it.countries[0])}, it.name)}</h3>
       <div class="meta">${(it.countries||[]).join(' · ')}</div>
       <div><b>为何付费：</b>${it.why_paid||''}</div>
       <div class="cut"><b>Agent 切口：</b>${it.agent_cut||''}</div>
@@ -77,7 +88,7 @@ function renderShortlist(){
 function renderCo(){
   const rows=(DATA.cooccurrence_paid_apps||[]).filter(r=>r.country_count>=5);
   $('coBody').innerHTML = rows.map(r=>`<tr>
-    <td>${r.app_name}<div class="meta">${r.developer||''}</div></td>
+    <td>${appCell(r)}<div class="meta">${r.developer||''}</div></td>
     <td>${r.country_count}</td>
     <td>${r.countries.join(', ')}</td>
     <td>${r.category||'—'}</td>
@@ -90,7 +101,7 @@ function renderRanks(){
   if(q) rows=rows.filter(r=>((r.app_name||'')+(r.developer||'')).toLowerCase().includes(q));
   rows.sort((a,b)=>a.rank-b.rank);
   $('rankBody').innerHTML = rows.map(r=>`<tr>
-    <td>${r.rank}</td><td>${r.app_name}</td><td>${r.developer||'—'}</td><td>${r.category||'—'}</td>
+    <td>${r.rank}</td><td>${appCell(r)}</td><td>${r.developer||'—'}</td><td>${r.category||'—'}</td>
     <td>${r.price?`${r.currency||''} ${r.price}`:'—'}</td>
   </tr>`).join('') || `<tr><td colspan="5">无数据</td></tr>`;
 }
