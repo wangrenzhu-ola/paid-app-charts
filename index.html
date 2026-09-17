@@ -40,8 +40,8 @@ a{color:var(--accent)}
     <div class="controls">
       <select id="countrySel"></select>
       <select id="listSel">
-        <option value="paid_apps">付费应用</option>
         <option value="overall_paid">付费总榜</option>
+        <option value="paid_apps">付费应用</option>
         <option value="paid_games">付费游戏</option>
       </select>
       <input id="q" placeholder="搜索 App / 开发者" style="min-width:180px"/>
@@ -99,7 +99,15 @@ async function main(){
     const res=await fetch('./data/latest.json');
     if(!res.ok) throw new Error(res.status+' '+res.statusText);
     DATA=await res.json();
-    renderMeta(); renderShortlist(); renderCo(); renderRanks();
+    renderMeta(); renderShortlist(); renderCo();
+    (function syncListSel(){
+      const available = new Set((DATA.meta && DATA.meta.list_types) || []);
+      const sel = $('listSel');
+      [...sel.options].forEach(o=>{ o.disabled = available.size>0 && !available.has(o.value); });
+      const first = [...sel.options].find(o=>!o.disabled);
+      if(first) sel.value = first.value;
+    })();
+    renderRanks();
     ['countrySel','listSel'].forEach(id=>$(id).addEventListener('change',renderRanks));
     $('q').addEventListener('input',renderRanks);
   }catch(e){
