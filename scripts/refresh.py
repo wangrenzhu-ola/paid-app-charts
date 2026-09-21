@@ -48,54 +48,64 @@ def rss_paid(cc: str, games: bool=False):
     return rows
 
 def marketing_paid_apps(cc: str):
-    url = f'https://itunes.apple.com/{cc}/charts/apps/top-paid/50/apps.json'
+    # Official Marketing Tools RSS (apps tab top-paid). Old itunes.com/charts URL returns HTML.
+    url = f'https://rss.applemarketingtools.com/api/v2/{cc}/apps/top-paid/50/apps.json'
     try:
         data = get_json(url)
     except Exception as ex:
         print('marketing fail', cc, ex)
         return []
     now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    # structure varies; try common shapes
-    apps = data.get('resultIds') or data.get('adamIds') or []
-    # fallback: chart data
-    chart = data.get('data') or data
-    rows = []
-    # If only ids, skip detail for speed and use chart results if present
-    results = []
-    if isinstance(chart, dict) and 'results' in chart:
-        results = chart['results']
-    elif isinstance(data.get('feed'), dict):
+    results = (data.get('feed') or {}).get('results') or []
+    ids = [str(x.get('id')) for x in results if x.get('id')]
+    if not ids:
+        # legacy shapes
+        ids = [str(x) for x in (data.get('adamIds') or data.get('resultIds') or [])]
+    if not ids:
+        print('marketing empty', cc)
         return []
-    # Alternate endpoint often returns {"adamIds":[...]} — hydrate via lookup
-    ids = data.get('adamIds') or data.get('resultIds')
-    if ids:
-        # batch lookup
-        for start in range(0, len(ids), 50):
-            batch = ids[start:start+50]
-            look = f"https://itunes.apple.com/lookup?id={','.join(map(str,batch))}&country={cc}"
-            try:
-                js = get_json(look)
-            except Exception as ex:
-                print('lookup fail', cc, ex)
-                continue
-            by_id = {str(x['trackId']): x for x in js.get('results', [])}
-            for i, aid in enumerate(batch, start+1):
-                x = by_id.get(str(aid))
-                if not x: continue
-                rows.append({
-                    'country': CC[cc],
-                    'rank': i,
-                    'list_type': 'paid_apps',
-                    'app_name': x.get('trackName'),
-                    'developer': x.get('artistName'),
-                    'category': (x.get('primaryGenreName')),
-                    'price': x.get('price'),
-                    'currency': x.get('currency'),
-                    'app_id': str(x.get('trackId')),
-                    'source_url': url,
-                    'fetched_at': now,
-                })
-        return rows
+    rows = []
+    by_id = {}
+    for start in range(0, len(ids), 50):
+        batch = ids[start:start+50]
+        look = f"https://itunes.apple.com/lookup?id={','.join(batch)}&country={cc}"
+        try:
+            js = get_json(look)
+        except Exception as ex:
+            print('lookup fail', cc, ex)
+            continue
+        by_id.update({str(x['trackId']): x for x in js.get('results', [])})
+    for i, aid in enumerate(ids, 1):
+        x = by_id.get(str(aid))
+        feed_item = results[i-1] if i-1 < len(results) else {}
+        if x:
+            rows.append({
+                'country': CC[cc],
+                'rank': i,
+                'list_type': 'paid_apps',
+                'app_name': x.get('trackName') or feed_item.get('name'),
+                'developer': x.get('artistName') or feed_item.get('artistName'),
+                'category': x.get('primaryGenreName'),
+                'price': x.get('price'),
+                'currency': x.get('currency'),
+                'app_id': str(x.get('trackId') or aid),
+                'source_url': url,
+                'fetched_at': now,
+            })
+        elif feed_item:
+            rows.append({
+                'country': CC[cc],
+                'rank': i,
+                'list_type': 'paid_apps',
+                'app_name': feed_item.get('name'),
+                'developer': feed_item.get('artistName'),
+                'category': None,
+                'price': None,
+                'currency': None,
+                'app_id': str(aid),
+                'source_url': url,
+                'fetched_at': now,
+            })
     return rows
 
 def cooccurrence(rows):
